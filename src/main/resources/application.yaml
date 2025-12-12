@@ -1,5 +1,16 @@
 spring:
   application:
     name: Qerb
-  jwt:
-    key: "key"
+  docker:
+    compose:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  h2:
+    console:
+      enabled: true
+jwt:
+  key: "${JWT_SECRET}"
+

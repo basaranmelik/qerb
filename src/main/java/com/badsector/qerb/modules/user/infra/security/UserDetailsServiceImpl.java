@@ -1,7 +1,7 @@
 package com.badsector.qerb.modules.user.infra.security;
 
 import com.badsector.qerb.modules.user.domain.User;
-import com.badsector.qerb.modules.user.infra.persistence.UserRepository;
+import com.badsector.qerb.modules.user.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.userdetails.UserDetails;
