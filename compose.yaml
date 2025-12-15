@@ -1,13 +1,40 @@
+version: '3.8'
+
 services:
-  postgres:
-    image: 'postgres:latest'
+  app:
+    image: 'qerb-app:latest'
+    build:
+      context: .
+      # Eğer Dockerfile dosyanın adı farklıysa buraya dockerfile: DosyaAdi yazabilirsin
+    container_name: qerb_app
+    depends_on:
+      - db
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      # Veritabanı kimlik bilgileri (Aşağıdaki db servisiyle aynı olmalı)
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+      # Spring Boot Bağlantı Ayarları
+      # DİKKAT: Docker içinde 'localhost' yerine servis adı olan 'db' kullanılır
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/qerb_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     ports:
-      - '5432'
-  redis:
-    image: 'redis:latest'
+      - "8080:8080" # Sol taraf senin bilgisayarın, sağ taraf container portu
+
+  db:
+    image: postgres:17
+    container_name: qerb_db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=qerb_db
     ports:
-      - '6379'
+      - "5432:5432"
+    volumes:
+      - qerb_data:/var/lib/postgresql/data
+
+volumes:
+  qerb_data:
