@@ -26,13 +26,13 @@ public class RefreshTokenRedisAdapter implements RefreshTokenPort {
     }
 
     @Override
-    public Optional<RefreshToken> findByToken(String token) {
-        return repository.findByToken(token)
+    public Optional<RefreshToken> findByToken(String refreshToken) {
+        return repository.findByToken(refreshToken)
                 .map(mapper::toDomain);
     }
 
     @Override
-    public void deleteByUserId(UUID userId) {
-        repository.deleteByUserId(userId);
+    public void delete(String refreshToken) {
+        repository.delete(refreshToken);
     }
 }

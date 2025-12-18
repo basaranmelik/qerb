@@ -6,8 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface RefreshTokenRedisRepository extends CrudRepository<RefreshTokenRedisEntity, String> {
-
-    Optional<RefreshTokenRedisEntity> findByToken(String token);
-
-    void deleteByUserId(UUID userId);
+    Optional<RefreshTokenRedisEntity> findByToken(String refreshToken);
+    void delete(String refreshToken);
 }

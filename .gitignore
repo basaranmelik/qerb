@@ -1,0 +1,24 @@
+### GÜVENLİK (En Önemlisi) ###
+.env
+.env.local
+.env.*
+
+### Java / Maven Çıktıları ###
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+### IDE Dosyaları (Kendi ayarlarını göndermemek için) ###
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+### İşletim Sistemi Dosyaları ###
+.DS_Store
+Thumbs.db

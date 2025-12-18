@@ -3,34 +3,122 @@ package com.badsector.qerb.modules.user.application.service;
 import com.badsector.qerb.modules.user.domain.model.RefreshToken;
 import com.badsector.qerb.modules.user.domain.model.Role;
 import com.badsector.qerb.modules.user.domain.model.User;
+import com.badsector.qerb.modules.user.domain.model.VerificationToken;
 import com.badsector.qerb.modules.user.domain.port.in.UserUseCase;
+import com.badsector.qerb.modules.user.domain.port.in.command.LoginCommand;
+import com.badsector.qerb.modules.user.domain.port.in.command.RegisterCommand;
 import com.badsector.qerb.modules.user.domain.port.in.result.AuthResult;
-import com.badsector.qerb.modules.user.domain.port.out.RefreshTokenPort; // 🆕 Redis Portu
+import com.badsector.qerb.modules.user.domain.port.out.EmailPort;
+import com.badsector.qerb.modules.user.domain.port.out.RefreshTokenPort;
 import com.badsector.qerb.modules.user.domain.port.out.UserRepositoryPort;
-import com.badsector.qerb.modules.user.infra.adapter.web.dto.AuthResponse;
-import com.badsector.qerb.modules.user.infra.adapter.web.dto.LoginRequest;
-import com.badsector.qerb.modules.user.infra.adapter.web.dto.RegisterRequest;
+import com.badsector.qerb.modules.user.domain.port.out.VerificationTokenPort;
 import com.badsector.qerb.shared.infra.security.JwtService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class UserService implements UserUseCase {
+    private final UserRepositoryPort userRepositoryPort;
+    private final JwtService jwtService;
+    private final RefreshTokenPort refreshTokenPort;
+    private final AuthenticationManager authenticationManager;
+    private final PasswordEncoder passwordEncoder;
+    private final VerificationTokenPort verificationTokenPort;
+    private final EmailPort emailPort;
+
     @Override
-    public AuthResult register(User user) {
-        return null;
+    @Transactional
+    public void register(RegisterCommand cmd) {
+        if (userRepositoryPort.existsByEmail(cmd.email()))
+            throw new IllegalArgumentException("User with email " + cmd.email() + " already exists");
+        User newUser = User.builder()
+                .email(cmd.email())
+                .password(passwordEncoder.encode(cmd.password()))
+                .firstName(cmd.firstName())
+                .lastName(cmd.lastName())
+                .phone(cmd.phone())
+                .role(Role.USER)
+                .enabled(false)
+                .deleted(false)
+                .build();;
+
+        User savedUser = userRepositoryPort.save(newUser);
+
+        sendVerificationFlow(savedUser);
     }
 
     @Override
-    public AuthResult login(User user) {
-        return null;
+    public AuthResult login(LoginCommand cmd) {
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(cmd.email(), cmd.password()));
+        User user = userRepositoryPort.findByEmail(cmd.email())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        return generateTokens(user);
     }
 
+    @Override
+    @Transactional
+    public void verifyEmail(String tokenString) {
+        VerificationToken verificationToken = verificationTokenPort.findById(tokenString)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired refresh token"));
+        User user = userRepositoryPort.findById(verificationToken.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (user.isEnabled()) {
+            return;
+        }
+
+        user.setEnabled(true);
+        userRepositoryPort.save(user);
+        verificationTokenPort.delete(tokenString);
+    }
+
+    @Override
+    @Transactional
+    public AuthResult refreshToken(String oldRefreshTokenString) {
+        RefreshToken storedToken = refreshTokenPort.findByToken(oldRefreshTokenString)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired refresh token"));
+
+        User user = userRepositoryPort.findById(storedToken.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        refreshTokenPort.delete(oldRefreshTokenString);
+        return generateTokens(user);
+    }
+
+    private AuthResult generateTokens(User user) {
+        String accessToken = jwtService.generateToken(user.getEmail());
+        String refreshTokenString = UUID.randomUUID().toString();
+        RefreshToken refreshToken = RefreshToken.builder()
+                .token(refreshTokenString)
+                .userId(user.getId())
+                .build();
+
+        refreshTokenPort.save(refreshToken);
+
+        return AuthResult.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshTokenString)
+                .userId(user.getId())
+                .build();
+    }
+
+
+    private void sendVerificationFlow(User user) {
+        String tokenString = UUID.randomUUID().toString();
+
+        VerificationToken verificationToken = VerificationToken.builder()
+                .token(tokenString)
+                .userId(user.getId())
+                .build();
+
+        verificationTokenPort.save(verificationToken);
+        emailPort.sendVerificationEmail(user.getEmail(), tokenString);
+    }
 }

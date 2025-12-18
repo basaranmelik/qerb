@@ -1,40 +1,39 @@
-version: '3.8'
+spring:
+  application:
+    name: Qerb
 
-services:
-  app:
-    image: 'qerb-app:latest'
-    build:
-      context: .
-      # Eğer Dockerfile dosyanın adı farklıysa buraya dockerfile: DosyaAdi yazabilirsin
-    container_name: qerb_app
-    depends_on:
-      - db
-    environment:
-      # Veritabanı kimlik bilgileri (Aşağıdaki db servisiyle aynı olmalı)
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+  jackson:
+    property-naming-strategy: SNAKE_CASE
 
-      # Spring Boot Bağlantı Ayarları
-      # DİKKAT: Docker içinde 'localhost' yerine servis adı olan 'db' kullanılır
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/qerb_db
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-    ports:
-      - "8080:8080" # Sol taraf senin bilgisayarın, sağ taraf container portu
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
 
-  db:
-    image: postgres:17
-    container_name: qerb_db
-    restart: always
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=qerb_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - qerb_data:/var/lib/postgresql/data
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/qerb_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
 
-volumes:
-  qerb_data:
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+jwt:
+  key: "${JWT_SECRET}"
+
+app:
+  base-url: "${APP_BASE_URL:http://localhost:8080}"
