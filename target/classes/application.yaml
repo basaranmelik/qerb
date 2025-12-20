@@ -1,25 +1,39 @@
 spring:
   application:
     name: Qerb
+
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/qerb_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+
   data:
     redis:
-      host: redis
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: basaranmelik1@gmail.com
-    password: "oafo zqlq unwl vtcn"
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
-jwt:
-  key: "${JWT_SECRET:MIICWwIBAAKBgQCc7HRMb1BJAbS7OunUDqGko7q2UHHrnO3YrljxbQOtChnOJF7N}"
 
+jwt:
+  key: "${JWT_SECRET}"
+
+app:
+  base-url: "${APP_BASE_URL:http://localhost:8080}"

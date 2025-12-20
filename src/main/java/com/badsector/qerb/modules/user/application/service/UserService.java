@@ -38,6 +38,8 @@ public class UserService implements UserUseCase {
     public void register(RegisterCommand cmd) {
         if (userRepositoryPort.existsByEmail(cmd.email()))
             throw new IllegalArgumentException("User with email " + cmd.email() + " already exists");
+        if (userRepositoryPort.existsByPhone(cmd.phone()))
+            throw new IllegalArgumentException("User with phone " + cmd.phone() + " already exists");
         User newUser = User.builder()
                 .email(cmd.email())
                 .password(passwordEncoder.encode(cmd.password()))

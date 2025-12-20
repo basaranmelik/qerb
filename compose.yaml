@@ -1,39 +1,40 @@
-spring:
-  application:
-    name: Qerb
+services:
+  app:
+    build: .
+    container_name: qerb-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/qerb_db}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-postgres}
+      - SPRING_DATA_REDIS_HOST=${SPRING_DATA_REDIS_HOST:-redis}
+      - JWT_SECRET=${JWT_SECRET}
+      - SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME}
+      - SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD}
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
 
-  jackson:
-    property-naming-strategy: SNAKE_CASE
+  db:
+    image: postgres:15
+    container_name: qerb-db
+    environment:
+      POSTGRES_DB: qerb_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
+  redis:
+    image: redis:alpine
+    container_name: qerb-redis
+    ports:
+      - "6379:6379"
 
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/qerb_db}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
-
-  data:
-    redis:
-      host: ${SPRING_DATA_REDIS_HOST:localhost}
-      port: ${SPRING_DATA_REDIS_PORT:6379}
-
-  mail:
-    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
-    port: ${SPRING_MAIL_PORT:587}
-    username: ${SPRING_MAIL_USERNAME}
-    password: ${SPRING_MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-
-jwt:
-  key: "${JWT_SECRET}"
-
-app:
-  base-url: "${APP_BASE_URL:http://localhost:8080}"
+volumes:
+  postgres_data:
