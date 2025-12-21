@@ -1,7 +1,7 @@
-package com.badsector.qerb.modules.user.infra.adapter.persistence.mapper;
+package com.badsector.qerb.modules.user.infra.adapter.redis.mapper;
 
 import com.badsector.qerb.modules.user.domain.model.RefreshToken;
-import com.badsector.qerb.modules.user.infra.adapter.persistence.entity.RefreshTokenRedisEntity;
+import com.badsector.qerb.modules.user.infra.adapter.redis.entity.RefreshTokenRedisEntity;
 import org.springframework.stereotype.Component;
 
 @Component

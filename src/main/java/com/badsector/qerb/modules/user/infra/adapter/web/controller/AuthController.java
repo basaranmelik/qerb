@@ -2,10 +2,7 @@ package com.badsector.qerb.modules.user.infra.adapter.web.controller;
 
 import com.badsector.qerb.modules.user.domain.port.in.UserUseCase;
 import com.badsector.qerb.modules.user.domain.port.in.result.AuthResult;
-import com.badsector.qerb.modules.user.infra.adapter.web.dto.AuthResponse;
-import com.badsector.qerb.modules.user.infra.adapter.web.dto.LoginRequest;
-import com.badsector.qerb.modules.user.infra.adapter.web.dto.RefreshTokenRequest;
-import com.badsector.qerb.modules.user.infra.adapter.web.dto.RegisterRequest;
+import com.badsector.qerb.modules.user.infra.adapter.web.dto.*;
 import com.badsector.qerb.shared.web.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -80,5 +77,27 @@ public class AuthController {
         AuthResult authResult = userUseCase.refreshToken(request.token());
         AuthResponse authResponse = AuthResponse.from(authResult);
         return ResponseEntity.ok(ApiResponse.success(authResponse, "Refresh successful"));
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Forgot Password", description = "Initiates password reset process. Sends an email with a reset token.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Email sent (or simulated if user not found)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid email format")
+    })
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
+        userUseCase.forgotPassword(request.email());
+        return ResponseEntity.ok(ApiResponse.success(null, "If your email is registered, you will receive a reset link."));
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Reset Password", description = "Completes the password reset process using the token and new password.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Password updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid or expired token")
+    })
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@RequestBody @Valid ResetPasswordRequest request) {
+        userUseCase.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok(ApiResponse.success(null, "Password reset successful. You can now login."));
     }
 }

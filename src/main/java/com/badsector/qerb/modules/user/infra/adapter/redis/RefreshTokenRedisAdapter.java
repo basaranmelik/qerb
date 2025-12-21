@@ -1,15 +1,14 @@
-package com.badsector.qerb.modules.user.infra.adapter.persistence;
+package com.badsector.qerb.modules.user.infra.adapter.redis;
 
 import com.badsector.qerb.modules.user.domain.model.RefreshToken;
 import com.badsector.qerb.modules.user.domain.port.out.RefreshTokenPort;
-import com.badsector.qerb.modules.user.infra.adapter.persistence.entity.RefreshTokenRedisEntity;
-import com.badsector.qerb.modules.user.infra.adapter.persistence.mapper.RefreshTokenMapper;
-import com.badsector.qerb.modules.user.infra.adapter.persistence.repository.RefreshTokenRedisRepository;
+import com.badsector.qerb.modules.user.infra.adapter.redis.entity.RefreshTokenRedisEntity;
+import com.badsector.qerb.modules.user.infra.adapter.redis.mapper.RefreshTokenMapper;
+import com.badsector.qerb.modules.user.infra.adapter.redis.repository.RefreshTokenRedisRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -27,12 +26,12 @@ public class RefreshTokenRedisAdapter implements RefreshTokenPort {
 
     @Override
     public Optional<RefreshToken> findByToken(String refreshToken) {
-        return repository.findByToken(refreshToken)
+        return repository.findById(refreshToken)
                 .map(mapper::toDomain);
     }
 
     @Override
     public void delete(String refreshToken) {
-        repository.delete(refreshToken);
+        repository.deleteById(refreshToken);
     }
 }

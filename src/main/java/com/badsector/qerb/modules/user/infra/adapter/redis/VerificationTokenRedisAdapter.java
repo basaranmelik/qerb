@@ -1,9 +1,9 @@
-package com.badsector.qerb.modules.user.infra.adapter.persistence;
+package com.badsector.qerb.modules.user.infra.adapter.redis;
 
 import com.badsector.qerb.modules.user.domain.model.VerificationToken;
 import com.badsector.qerb.modules.user.domain.port.out.VerificationTokenPort;
-import com.badsector.qerb.modules.user.infra.adapter.persistence.entity.VerificationTokenRedisEntity;
-import com.badsector.qerb.modules.user.infra.adapter.persistence.repository.VerificationTokenRedisRepository;
+import com.badsector.qerb.modules.user.infra.adapter.redis.entity.VerificationTokenRedisEntity;
+import com.badsector.qerb.modules.user.infra.adapter.redis.repository.VerificationTokenRedisRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

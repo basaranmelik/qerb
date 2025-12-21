@@ -9,7 +9,6 @@ public record LoginRequest (
     @Email(message = "Please provide a valid email address")
     @NotBlank(message = "Email cannot be blank")
     @Schema(description = "User's email address", example = "john.doe@example.com")
-
     String email,
 
     @NotBlank(message = "Password cannot be blank")

@@ -16,8 +16,11 @@ public class GmailAdapter implements EmailPort {
 
     private final JavaMailSender mailSender;
 
-    @Value("${app.base-url:http://localhost:8080}")
+    @Value("${app.base-url:http")
     private String baseUrl;
+
+    @Value("${app.frontend-url")
+    private String frontendUrl;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -25,29 +28,60 @@ public class GmailAdapter implements EmailPort {
     @Override
     @Async
     public void sendVerificationEmail(String to, String token) {
+        String verificationLink = baseUrl + "/api/v1/auth/verify?token=" + token;
+
+        String subject = "Verify Your QERB Account";
+        String body = """
+                Hello,
+
+                Welcome to QERB! To activate your account, please verify your email address by clicking the link below:
+
+                %s
+
+                This link is valid for 24 hours.
+
+                Best regards,
+                The QERB Team
+                """.formatted(verificationLink);
+
+        sendEmail(to, subject, body);
+    }
+
+    @Override
+    @Async // Şifre sıfırlama da asenkron olmalı
+    public void sendPasswordResetEmail(String to, String token) {
+        // Şifre sıfırlama linki genellikle Frontend sayfasına gider
+        String resetLink = frontendUrl + "/reset-password?token=" + token;
+
+        String subject = "Password Reset Request"; // İngilizce standartlaştırdım
+        String body = """
+                Hello,
+
+                We received a request to reset your password.
+                To reset your password, click the link below:
+
+                %s
+
+                This link is valid for 15 minutes.
+                If you did not request a password reset, you can safely ignore this email.
+
+                Best regards,
+                The QERB Team
+                """.formatted(resetLink);
+
+        sendEmail(to, subject, body);
+    }
+
+    private void sendEmail(String to, String subject, String text) {
         try {
-            String verificationLink = baseUrl + "/api/v1/auth/verify?token=" + token;
-            String emailContent = """
-                    Hello,
-
-                    Welcome to QERB! To activate your account, please verify your email address by clicking the link below:
-
-                    %s
-
-                    This link is valid for 24 hours.
-
-                    Best regards,
-                    The QERB Team
-                    """.formatted(verificationLink);
-
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(to);
-            message.setSubject("Verify Your QERB Account");
-            message.setText(emailContent);
+            message.setSubject(subject);
+            message.setText(text);
 
             mailSender.send(message);
-            log.info("Verification email sent successfully to: {}", to);
+            log.info("Email sent successfully to: {} | Subject: {}", to, subject);
 
         } catch (Exception e) {
             log.error("Failed to send email to: {}. Error: {}", to, e.getMessage());

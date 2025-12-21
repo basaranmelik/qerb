@@ -8,10 +8,7 @@ import com.badsector.qerb.modules.user.domain.port.in.UserUseCase;
 import com.badsector.qerb.modules.user.domain.port.in.command.LoginCommand;
 import com.badsector.qerb.modules.user.domain.port.in.command.RegisterCommand;
 import com.badsector.qerb.modules.user.domain.port.in.result.AuthResult;
-import com.badsector.qerb.modules.user.domain.port.out.EmailPort;
-import com.badsector.qerb.modules.user.domain.port.out.RefreshTokenPort;
-import com.badsector.qerb.modules.user.domain.port.out.UserRepositoryPort;
-import com.badsector.qerb.modules.user.domain.port.out.VerificationTokenPort;
+import com.badsector.qerb.modules.user.domain.port.out.*;
 import com.badsector.qerb.shared.infra.security.JwtService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +29,7 @@ public class UserService implements UserUseCase {
     private final PasswordEncoder passwordEncoder;
     private final VerificationTokenPort verificationTokenPort;
     private final EmailPort emailPort;
+    private final PasswordResetTokenPort passwordResetTokenPort;
 
     @Override
     @Transactional
@@ -122,5 +120,31 @@ public class UserService implements UserUseCase {
 
         verificationTokenPort.save(verificationToken);
         emailPort.sendVerificationEmail(user.getEmail(), tokenString);
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(String email) {
+        if (!userRepositoryPort.existsByEmail(email)) {
+            return;
+        }
+
+        String token = UUID.randomUUID().toString();
+        passwordResetTokenPort.save(token, email);
+        emailPort.sendPasswordResetEmail(email, token);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        String email = passwordResetTokenPort.findEmailByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired password reset link"));
+
+        User user = userRepositoryPort.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepositoryPort.save(user);
+        passwordResetTokenPort.delete(token);
     }
 }
