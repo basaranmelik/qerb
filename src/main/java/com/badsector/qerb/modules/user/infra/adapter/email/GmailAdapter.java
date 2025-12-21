@@ -13,13 +13,10 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class GmailAdapter implements EmailPort {
-
     private final JavaMailSender mailSender;
-
-    @Value("${app.base-url:http")
+    @Value("${app.base-url}")
     private String baseUrl;
-
-    @Value("${app.frontend-url")
+    @Value("${app.frontend-url}")
     private String frontendUrl;
 
     @Value("${spring.mail.username}")
@@ -28,7 +25,7 @@ public class GmailAdapter implements EmailPort {
     @Override
     @Async
     public void sendVerificationEmail(String to, String token) {
-        String verificationLink = baseUrl + "/api/v1/auth/verify?token=" + token;
+        String verificationLink = frontendUrl + "/verify-email?token=" + token;
 
         String subject = "Verify Your QERB Account";
         String body = """
@@ -48,12 +45,11 @@ public class GmailAdapter implements EmailPort {
     }
 
     @Override
-    @Async // Şifre sıfırlama da asenkron olmalı
+    @Async
     public void sendPasswordResetEmail(String to, String token) {
-        // Şifre sıfırlama linki genellikle Frontend sayfasına gider
         String resetLink = frontendUrl + "/reset-password?token=" + token;
 
-        String subject = "Password Reset Request"; // İngilizce standartlaştırdım
+        String subject = "Password Reset Request";
         String body = """
                 Hello,
 
