@@ -16,27 +16,28 @@ import java.util.UUID;
 public class UserRepositoryAdapter implements UserRepositoryPort {
 
     private final UserJpaRepository jpaRepo;
+    private final UserEntityMapper userEntityMapper;
 
     @Override
     public Optional<User> findById(UUID id) {
-        return jpaRepo.findById(id).map(UserEntityMapper::toDomain);
+        return jpaRepo.findById(id).map(userEntityMapper::toDomain);
     }
 
     @Override
     public Optional<User> findByEmail(String email) {
-        return jpaRepo.findByEmail(email).map(UserEntityMapper::toDomain);
+        return jpaRepo.findByEmail(email).map(userEntityMapper::toDomain);
     }
 
     @Override
     public Optional<User> findByPhone(String phone) {
-        return jpaRepo.findByPhone(phone).map(UserEntityMapper::toDomain);
+        return jpaRepo.findByPhone(phone).map(userEntityMapper::toDomain);
     }
 
     @Override
     public User save(User user) {
-        UserEntity entity = UserEntityMapper.fromDomain(user);
+        UserEntity entity = userEntityMapper.fromDomain(user);
         UserEntity saved = jpaRepo.save(entity);
-        return UserEntityMapper.toDomain(saved);
+        return userEntityMapper.toDomain(saved);
     }
 
     @Override

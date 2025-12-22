@@ -39,7 +39,8 @@ public class JwtService {
         byte [] keyBytes = Decoders.BASE64.decode(SECRET);
         return Keys.hmacShaKeyFor(keyBytes);
     }
-    private Date extractExpiration(String token) {
+
+    public Date extractExpiration(String token) {
         Claims claims = Jwts
                 .parserBuilder()
                 .setSigningKey(getSignKey())
@@ -48,6 +49,7 @@ public class JwtService {
                 .getBody();
         return claims.getExpiration();
     }
+
     public String extractUsername(String token) {
         Claims claims = Jwts
                 .parserBuilder()

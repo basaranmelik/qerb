@@ -3,9 +3,8 @@ package com.badsector.qerb.modules.user.domain.port.in.command;
 import lombok.Builder;
 
 @Builder
-public record RegisterCommand(
+public record UpdateProfileCommand(
         String email,
-        String password,
         String firstName,
         String lastName,
         String phone

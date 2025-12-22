@@ -100,4 +100,14 @@ public class AuthController {
         userUseCase.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.ok(ApiResponse.success(null, "Password reset successful. You can now login."));
     }
+
+    @PostMapping("/logout")
+    @Operation(summary = "User Logout", description = "Invalidates Access Token (Blacklist) and revokes Refresh Token (Delete).")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody @Valid LogoutRequest request
+    ) {
+        userUseCase.logout(authHeader, request.refreshToken());
+        return ResponseEntity.ok(ApiResponse.success(null, "Logout successful"));
+    }
 }

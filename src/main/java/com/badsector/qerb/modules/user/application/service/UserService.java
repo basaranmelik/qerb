@@ -5,8 +5,10 @@ import com.badsector.qerb.modules.user.domain.model.Role;
 import com.badsector.qerb.modules.user.domain.model.User;
 import com.badsector.qerb.modules.user.domain.model.VerificationToken;
 import com.badsector.qerb.modules.user.domain.port.in.UserUseCase;
+import com.badsector.qerb.modules.user.domain.port.in.command.ChangePasswordCommand;
 import com.badsector.qerb.modules.user.domain.port.in.command.LoginCommand;
 import com.badsector.qerb.modules.user.domain.port.in.command.RegisterCommand;
+import com.badsector.qerb.modules.user.domain.port.in.command.UpdateProfileCommand;
 import com.badsector.qerb.modules.user.domain.port.in.result.AuthResult;
 import com.badsector.qerb.modules.user.domain.port.out.*;
 import com.badsector.qerb.shared.infra.security.JwtService;
@@ -17,6 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.UUID;
 
 @Service
@@ -30,6 +33,7 @@ public class UserService implements UserUseCase {
     private final VerificationTokenPort verificationTokenPort;
     private final EmailPort emailPort;
     private final PasswordResetTokenPort passwordResetTokenPort;
+    private final TokenBlacklistPort tokenBlacklistPort;
 
     @Override
     @Transactional
@@ -147,4 +151,59 @@ public class UserService implements UserUseCase {
         userRepositoryPort.save(user);
         passwordResetTokenPort.delete(token);
     }
+
+    @Override
+    public void logout(String authHeader, String refreshToken) {
+        String accessToken = authHeader.substring(7);
+        Date expirationDate = jwtService.extractExpiration(accessToken);
+        long currentTime = System.currentTimeMillis();
+        long ttl = expirationDate.getTime() - currentTime;
+        if (ttl > 0)
+            tokenBlacklistPort.blacklistToken(accessToken, ttl);
+        if (refreshToken != null && !refreshToken.isEmpty())
+            refreshTokenPort.delete(refreshToken);
+
+    }
+
+    @Override
+    public User getProfile(String email) {
+        return userRepositoryPort.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+    }
+
+
+    @Override
+    @Transactional
+    public User updateProfile(UpdateProfileCommand cmd) {
+        User user = userRepositoryPort.findByEmail(cmd.email())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (cmd.firstName() != null && !cmd.firstName().isBlank()) {
+            user.setFirstName(cmd.firstName());
+        }
+
+        if (cmd.lastName() != null && !cmd.lastName().isBlank()) {
+            user.setLastName(cmd.lastName());
+        }
+
+        if (cmd.phone() != null && !cmd.phone().isBlank()) {
+            user.setPhone(cmd.phone());
+        }
+
+        return userRepositoryPort.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(ChangePasswordCommand cmd) {
+        User user = userRepositoryPort.findByEmail(cmd.email())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!passwordEncoder.matches(cmd.oldPassword(), user.getPassword()))
+            throw new IllegalArgumentException("Wrong password");
+
+        user.setPassword(passwordEncoder.encode(cmd.newPassword()));
+        userRepositoryPort.save(user);
+    }
+
 }

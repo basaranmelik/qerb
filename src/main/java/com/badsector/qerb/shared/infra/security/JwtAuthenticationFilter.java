@@ -1,5 +1,6 @@
 package com.badsector.qerb.shared.infra.security;
 
+import com.badsector.qerb.modules.user.domain.port.out.TokenBlacklistPort;
 import com.badsector.qerb.modules.user.infra.adapter.security.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,6 +23,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsServiceImpl userDetailsService;
+    private final TokenBlacklistPort tokenBlacklistPort;
 
     @Override
     protected void doFilterInternal(
@@ -39,7 +41,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+
         jwt = authHeader.substring(7);
+
+        if (tokenBlacklistPort.isTokenBlacklisted(jwt)) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Token is blacklisted (Logged out)");
+            return;
+        }
         userEmail = jwtService.extractUsername(jwt);
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {

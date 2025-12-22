@@ -2,9 +2,11 @@ package com.badsector.qerb.modules.user.infra.adapter.persistence.mapper;
 
 import com.badsector.qerb.modules.user.domain.model.User;
 import com.badsector.qerb.modules.user.infra.adapter.persistence.entity.UserEntity;
+import org.springframework.stereotype.Component;
 
+@Component
 public class UserEntityMapper {
-    public static User toDomain(UserEntity userEntity) {
+    public User toDomain(UserEntity userEntity) {
         return User.builder()
                 .id(userEntity.getId())
                 .email(userEntity.getEmail())
@@ -20,7 +22,7 @@ public class UserEntityMapper {
                 .build();
     }
 
-    public static UserEntity fromDomain(User user) {
+    public UserEntity fromDomain(User user) {
         return UserEntity.builder()
                 .id(user.getId())
                 .email(user.getEmail())
