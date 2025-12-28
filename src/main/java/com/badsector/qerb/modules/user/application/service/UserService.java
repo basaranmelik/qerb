@@ -11,6 +11,7 @@ import com.badsector.qerb.modules.user.domain.port.in.command.RegisterCommand;
 import com.badsector.qerb.modules.user.domain.port.in.command.UpdateProfileCommand;
 import com.badsector.qerb.modules.user.domain.port.in.result.AuthResult;
 import com.badsector.qerb.modules.user.domain.port.out.*;
+import com.badsector.qerb.shared.domain.exception.*;
 import com.badsector.qerb.shared.infra.security.JwtService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class UserService implements UserUseCase {
+
     private final UserRepositoryPort userRepositoryPort;
     private final JwtService jwtService;
     private final RefreshTokenPort refreshTokenPort;
@@ -38,10 +40,13 @@ public class UserService implements UserUseCase {
     @Override
     @Transactional
     public void register(RegisterCommand cmd) {
-        if (userRepositoryPort.existsByEmail(cmd.email()))
-            throw new IllegalArgumentException("User with email " + cmd.email() + " already exists");
-        if (userRepositoryPort.existsByPhone(cmd.phone()))
-            throw new IllegalArgumentException("User with phone " + cmd.phone() + " already exists");
+        if (userRepositoryPort.existsByEmail(cmd.email())) {
+            throw new ConflictException("User with email " + cmd.email() + " already exists");
+        }
+        if (userRepositoryPort.existsByPhone(cmd.phone())) {
+            throw new ConflictException("User with phone " + cmd.phone() + " already exists");
+        }
+
         User newUser = User.builder()
                 .email(cmd.email())
                 .password(passwordEncoder.encode(cmd.password()))
@@ -51,7 +56,7 @@ public class UserService implements UserUseCase {
                 .role(Role.USER)
                 .enabled(false)
                 .deleted(false)
-                .build();;
+                .build();
 
         User savedUser = userRepositoryPort.save(newUser);
 
@@ -61,8 +66,9 @@ public class UserService implements UserUseCase {
     @Override
     public AuthResult login(LoginCommand cmd) {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(cmd.email(), cmd.password()));
+
         User user = userRepositoryPort.findByEmail(cmd.email())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", cmd.email()));
 
         return generateTokens(user);
     }
@@ -71,9 +77,11 @@ public class UserService implements UserUseCase {
     @Transactional
     public void verifyEmail(String tokenString) {
         VerificationToken verificationToken = verificationTokenPort.findById(tokenString)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired refresh token"));
+                .orElseThrow(() -> new InvalidTokenException("Invalid or expired verification token"));
+
         User user = userRepositoryPort.findById(verificationToken.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", verificationToken.getUserId()));
+
         if (user.isEnabled()) {
             return;
         }
@@ -87,10 +95,10 @@ public class UserService implements UserUseCase {
     @Transactional
     public AuthResult refreshToken(String oldRefreshTokenString) {
         RefreshToken storedToken = refreshTokenPort.findByToken(oldRefreshTokenString)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired refresh token"));
+                .orElseThrow(() -> new InvalidTokenException("Invalid or expired refresh token"));
 
         User user = userRepositoryPort.findById(storedToken.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", storedToken.getUserId()));
 
         refreshTokenPort.delete(oldRefreshTokenString);
         return generateTokens(user);
@@ -142,10 +150,10 @@ public class UserService implements UserUseCase {
     @Transactional
     public void resetPassword(String token, String newPassword) {
         String email = passwordResetTokenPort.findEmailByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired password reset link"));
+                .orElseThrow(() -> new InvalidTokenException("Invalid or expired password reset link"));
 
         User user = userRepositoryPort.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepositoryPort.save(user);
@@ -154,21 +162,32 @@ public class UserService implements UserUseCase {
 
     @Override
     public void logout(String authHeader, String refreshToken) {
-        String accessToken = authHeader.substring(7);
-        Date expirationDate = jwtService.extractExpiration(accessToken);
-        long currentTime = System.currentTimeMillis();
-        long ttl = expirationDate.getTime() - currentTime;
-        if (ttl > 0)
-            tokenBlacklistPort.blacklistToken(accessToken, ttl);
-        if (refreshToken != null && !refreshToken.isEmpty())
-            refreshTokenPort.delete(refreshToken);
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return;
+        }
 
+        String accessToken = authHeader.substring(7);
+        try {
+            Date expirationDate = jwtService.extractExpiration(accessToken);
+            long currentTime = System.currentTimeMillis();
+            long ttl = expirationDate.getTime() - currentTime;
+
+            if (ttl > 0) {
+                tokenBlacklistPort.blacklistToken(accessToken, ttl);
+            }
+        } catch (Exception e) {
+            // Token zaten geçersizse logout işlemine engel olma
+        }
+
+        if (refreshToken != null && !refreshToken.isEmpty()) {
+            refreshTokenPort.delete(refreshToken);
+        }
     }
 
     @Override
     public User getProfile(String email) {
         return userRepositoryPort.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
     }
 
 
@@ -176,7 +195,7 @@ public class UserService implements UserUseCase {
     @Transactional
     public User updateProfile(UpdateProfileCommand cmd) {
         User user = userRepositoryPort.findByEmail(cmd.email())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", cmd.email()));
 
         if (cmd.firstName() != null && !cmd.firstName().isBlank()) {
             user.setFirstName(cmd.firstName());
@@ -197,13 +216,13 @@ public class UserService implements UserUseCase {
     @Transactional
     public void changePassword(ChangePasswordCommand cmd) {
         User user = userRepositoryPort.findByEmail(cmd.email())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", cmd.email()));
 
-        if (!passwordEncoder.matches(cmd.oldPassword(), user.getPassword()))
-            throw new IllegalArgumentException("Wrong password");
+        if (!passwordEncoder.matches(cmd.oldPassword(), user.getPassword())) {
+            throw new PasswordMismatchException("Wrong password provided");
+        }
 
         user.setPassword(passwordEncoder.encode(cmd.newPassword()));
         userRepositoryPort.save(user);
     }
-
 }

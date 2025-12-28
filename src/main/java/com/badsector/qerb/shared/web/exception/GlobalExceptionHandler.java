@@ -1,6 +1,13 @@
 package com.badsector.qerb.shared.web.exception;
 
+// 👇 Az önce oluşturduğumuz Domain exceptionlarını import ediyoruz
+import com.badsector.qerb.shared.domain.exception.BusinessException;
+import com.badsector.qerb.shared.domain.exception.ConflictException;
+import com.badsector.qerb.shared.domain.exception.ResourceNotFoundException;
 import com.badsector.qerb.shared.web.response.ApiResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -12,51 +19,61 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Wrong Password or Email (Return 401)
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException e) {
-        return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED) // 401
-                .body(ApiResponse.error("Invalid email or password."));
-    }
-
-    // 2. Account Not Verified (Return 403)
-    @ExceptionHandler(DisabledException.class)
-    public ResponseEntity<ApiResponse<Void>> handleDisabledException(DisabledException e) {
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN) // 403
-                .body(ApiResponse.error("Account is not verified. Please check your email."));
-    }
-
-    // 3. General Business Errors (User not found, etc.) - IllegalArgumentException
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException e) {
-        return ResponseEntity
-                .badRequest() // 400
-                .body(ApiResponse.error(e.getMessage()));
-    }
-
-    // 4. Validation Errors (@Valid - Empty fields, regex mismatch, etc.)
+    // 1. Validation Hataları (400)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationErrors(MethodArgumentNotValidException e) {
         Map<String, String> errors = new HashMap<>();
         e.getBindingResult().getFieldErrors().forEach(error ->
                 errors.put(error.getField(), error.getDefaultMessage())
         );
-
-        return ResponseEntity
-                .badRequest() // 400
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(errors, "Validation failed"));
     }
 
-    // 5. Unexpected Errors
+    // 2. Resource Not Found (404)
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(ResourceNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(e.getMessage()));
+    }
+
+    // 3. Conflict (409)
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConflict(ConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(e.getMessage()));
+    }
+
+    // 4. Bad Credentials (401)
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error("Invalid email or password"));
+    }
+
+    // 5. Account Disabled (403)
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDisabledException(DisabledException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error("Account is not verified. Please check your email."));
+    }
+
+    // 6. Genel Business Hataları (400)
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(e.getMessage()));
+    }
+
+    // 7. Beklenmedik Hatalar (500)
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception e) {
-        return ResponseEntity
-                .internalServerError() // 500
-                .body(ApiResponse.error("An unexpected error occurred: " + e.getMessage()));
+    public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception e, HttpServletRequest request) {
+        log.error("Unexpected error on: " + request.getRequestURI(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("An unexpected error occurred."));
     }
 }

@@ -2,12 +2,16 @@ package com.badsector.qerb.shared.infra.security;
 
 import com.badsector.qerb.modules.user.domain.port.out.TokenBlacklistPort;
 import com.badsector.qerb.modules.user.infra.adapter.security.UserDetailsServiceImpl;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.NonNull;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,6 +23,7 @@ import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -41,34 +46,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        try {
+            jwt = authHeader.substring(7);
 
-        jwt = authHeader.substring(7);
-
-        if (tokenBlacklistPort.isTokenBlacklisted(jwt)) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Token is blacklisted (Logged out)");
-            return;
-        }
-        userEmail = jwtService.extractUsername(jwt);
-
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-
-            if (jwtService.validateToken(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            if (tokenBlacklistPort.isTokenBlacklisted(jwt)) {
+                log.warn("Blocked request with blacklisted token: {}", jwt);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
             }
-        }
 
+            userEmail = jwtService.extractUsername(jwt);
+
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+
+                if (jwtService.validateToken(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            }
+
+        } catch (MalformedJwtException | SignatureException e) {
+            log.warn("Invalid JWT Token detected: {}", e.getMessage());
+            // Hata fırlatmıyoruz, SecurityContext boş kalıyor -> Sonuç 401
+        } catch (ExpiredJwtException e) {
+            // Token süresi dolmuşsa
+            log.warn("Expired JWT Token: {}", e.getMessage());
+            // Hata fırlatmıyoruz, SecurityContext boş kalıyor -> Sonuç 401
+        } catch (Exception e) {
+            // Beklenmedik diğer hatalar
+            log.error("Authentication error: {}", e.getMessage());
+        }
         filterChain.doFilter(request, response);
     }
 }
-
